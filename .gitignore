@@ -1,0 +1,62 @@
+# ============================================
+# Dependencies
+# ============================================
+/node_modules
+/vendor
+
+# ============================================
+# Build output
+# ============================================
+/public/build
+/public/hot
+/public/storage
+
+# ============================================
+# Environment
+# ============================================
+.env
+.env.backup
+.env.production
+
+# ============================================
+# Laravel
+# ============================================
+/storage/*.key
+/storage/pail
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/bootstrap/cache/*
+.phpunit.result.cache
+/.phpunit.cache
+Homestead.json
+Homestead.yaml
+auth.json
+_ide_helper.php
+
+# ============================================
+# Logs
+# ============================================
+*.log
+npm-debug.log*
+
+# ============================================
+# IDE / Editors
+# ============================================
+/.idea
+/.vscode
+/.fleet
+/.nova
+/.zed
+.phpactor.json
+
+# ============================================
+# OS
+# ============================================
+.DS_Store
+Thumbs.db
+
+# ============================================
+# Docker (optional)
+# ============================================
+# docker-compose.override.yml

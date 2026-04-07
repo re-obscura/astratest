@@ -1,0 +1,464 @@
+/*
+ * ============================================
+ * Task Manager SPA — Custom CSS
+ * ============================================
+ *
+ * Светлая тема с мягкими акцентами.
+ * Без фреймворков, только кастомные классы.
+ *
+ * Секции:
+ * 1. Базовые стили (reset, body, типографика)
+ * 2. Auth-страницы (login, register)
+ * 3. Tasks-страница (хэдер, список, карточки)
+ * 4. Формы и инпуты
+ * 5. Кнопки
+ * 6. Утилиты (ошибки, загрузка)
+ * 7. Адаптивность
+ */
+
+/* =============================================
+   1. БАЗОВЫЕ СТИЛИ
+   ============================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: #f5f3f0;
+    color: #1e1e2e;
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+a {
+    color: #6366f1;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+a:hover {
+    color: #4338ca;
+}
+
+/* =============================================
+   2. AUTH-СТРАНИЦЫ (Login, Register)
+   ============================================= */
+
+.auth-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+    background: linear-gradient(160deg, #f5f3f0 0%, #e8e4df 50%, #ddd8d0 100%);
+}
+
+.auth-card {
+    background: #ffffff;
+    border: 1px solid #e5e2dc;
+    border-radius: 20px;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 420px;
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        0 8px 32px rgba(0, 0, 0, 0.06);
+    animation: card-appear 0.4s ease-out;
+}
+
+@keyframes card-appear {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.auth-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #1e1e2e;
+    letter-spacing: -0.02em;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.auth-link {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.875rem;
+    color: #8c8c99;
+}
+
+/* =============================================
+   3. TASKS-СТРАНИЦА
+   ============================================= */
+
+.tasks-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    animation: page-fade-in 0.35s ease-out;
+}
+
+@keyframes page-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.tasks-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e2dc;
+}
+
+.header-left h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e1e2e;
+    letter-spacing: -0.02em;
+}
+
+.user-name {
+    font-size: 0.875rem;
+    color: #8c8c99;
+}
+
+/* --- Список задач --- */
+
+.tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.loading {
+    text-align: center;
+    color: #8c8c99;
+    padding: 3rem 0;
+    font-size: 0.95rem;
+}
+
+.empty-state {
+    text-align: center;
+    color: #b0adb5;
+    padding: 4rem 0;
+    font-size: 1rem;
+}
+
+/* --- Карточка задачи --- */
+
+.task-card {
+    background: #ffffff;
+    border: 1px solid #e5e2dc;
+    border-radius: 14px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.task-card:hover {
+    border-color: #c9c5be;
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        0 8px 24px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+
+.task-card.task-completed {
+    opacity: 0.55;
+}
+
+.task-card.task-completed .task-title {
+    text-decoration: line-through;
+    color: #8c8c99;
+}
+
+.task-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e1e2e;
+    cursor: pointer;
+    transition: color 0.2s;
+    word-break: break-word;
+}
+
+.task-title:hover {
+    color: #6366f1;
+}
+
+.task-description {
+    font-size: 0.85rem;
+    color: #8c8c99;
+    margin-top: 0.35rem;
+    word-break: break-word;
+}
+
+.task-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* =============================================
+   4. ФОРМЫ И ИНПУТЫ
+   ============================================= */
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #5c5c6e;
+}
+
+input,
+textarea {
+    background: #f9f8f6;
+    border: 1px solid #e0ddd6;
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.95rem;
+    color: #1e1e2e;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    font-family: inherit;
+}
+
+input:focus,
+textarea:focus {
+    background: #ffffff;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #b0adb5;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* --- Форма добавления задачи --- */
+
+.task-form {
+    margin-bottom: 2rem;
+}
+
+.form-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.form-row .input-title {
+    flex: 1;
+}
+
+.form-row .input-description {
+    flex: 1.2;
+}
+
+/* --- Форма редактирования (inline) --- */
+
+.edit-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.edit-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* =============================================
+   5. КНОПКИ
+   ============================================= */
+
+.btn {
+    border: none;
+    border-radius: 10px;
+    padding: 0.65rem 1.1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primary (логин, регистрация, добавить) */
+.btn-primary,
+.btn-add {
+    background: #6366f1;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-add:hover:not(:disabled) {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+}
+
+/* Logout */
+.btn-logout {
+    background: transparent;
+    border: 1px solid #d9d5cd;
+    color: #8c8c99;
+}
+
+.btn-logout:hover {
+    background: #f0ede8;
+    color: #1e1e2e;
+    border-color: #c9c5be;
+}
+
+/* Status: pending (активна) */
+.btn-status {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 20px;
+}
+
+.btn-status-pending {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.btn-status-pending:hover:not(:disabled) {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+
+/* Status: completed (выполнена) */
+.btn-status-completed {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.btn-status-completed:hover:not(:disabled) {
+    background: #d1fae5;
+    border-color: #34d399;
+}
+
+/* Delete */
+.btn-delete {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 20px;
+    background: transparent;
+    color: #8c8c99;
+    border: 1px solid transparent;
+}
+
+.btn-delete:hover:not(:disabled) {
+    color: #ef4444;
+    border-color: #fca5a5;
+    background: #fef2f2;
+}
+
+/* Save / Cancel (inline edit) */
+.btn-save {
+    background: #6366f1;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.btn-save:hover:not(:disabled) {
+    background: #4f46e5;
+}
+
+.btn-cancel {
+    background: transparent;
+    border: 1px solid #d9d5cd;
+    color: #8c8c99;
+}
+
+.btn-cancel:hover {
+    background: #f0ede8;
+    color: #1e1e2e;
+}
+
+/* =============================================
+   6. УТИЛИТЫ
+   ============================================= */
+
+.error-text {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
+/* =============================================
+   7. АДАПТИВНОСТЬ
+   ============================================= */
+
+@media (max-width: 600px) {
+    .form-row {
+        flex-direction: column;
+    }
+
+    .task-card {
+        flex-direction: column;
+    }
+
+    .task-actions {
+        align-self: flex-end;
+    }
+
+    .auth-card {
+        padding: 1.5rem;
+    }
+}
