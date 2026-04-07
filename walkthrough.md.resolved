@@ -1,0 +1,385 @@
+# Task Manager SPA — Полное объяснение архитектуры
+
+## Оглавление
+1. [Общая картина: как запрос проходит через систему](#1-общая-картина)
+2. [Backend: Laravel + Sanctum](#2-backend)
+3. [Frontend: Vue 3 + Pinia + Router](#3-frontend)
+4. [Связка Backend ↔ Frontend](#4-связка)
+5. [Docker](#5-docker)
+
+---
+
+## 1. Общая картина
+
+```mermaid
+graph LR
+    A["Браузер<br/>(Vue SPA)"] -->|HTTP запрос| B["Nginx"]
+    B -->|Статика CSS/JS| A
+    B -->|PHP-запрос| C["PHP-FPM<br/>(Laravel)"]
+    C -->|SQL| D["MySQL"]
+    D -->|Данные| C
+    C -->|JSON ответ| B
+    B -->|JSON| A
+```
+
+### Жизненный цикл одного запроса
+
+Допустим, пользователь нажимает "Добавить задачу":
+
+1. **Vue** (TaskForm) вызывает `tasksStore.addTask(title, description)`
+2. **Pinia store** делает `axios.post('/api/tasks', { title, description })`
+3. **Axios interceptor** добавляет заголовок `Authorization: Bearer <token>`
+4. **Nginx** получает запрос, видит что это не статика → проксирует на PHP-FPM
+5. **Laravel Router** ([api.php](file:///d:/astratest/routes/api.php)) матчит `POST /api/tasks` → `TaskController@store`
+6. **Middleware** `auth:sanctum` проверяет токен в заголовке → находит пользователя
+7. **TaskController::store()** валидирует данные, создаёт задачу через `$user->tasks()->create()`
+8. **Eloquent** вставляет строку в MySQL, автоматически подставляя `user_id`
+9. **Response** → JSON `{ id, title, description, status: "pending", created_at }` со статусом 201
+10. **Pinia store** получает ответ, добавляет задачу в начало массива [tasks](file:///d:/astratest/app/Models/User.php#35-42)
+11. **Vue** реактивно обновляет DOM — задача появляется в списке
+
+---
+
+## 2. Backend
+
+### 2.1. Почему token-based Sanctum, а не cookie-based?
+
+Sanctum поддерживает два режима:
+
+| | Cookie (SPA) | Token (API) |
+|---|---|---|
+| Как работает | Сессионная cookie + CSRF | Bearer token в заголовке |
+| Когда использовать | Фронт и бэк на одном домене | Фронт и бэк на разных портах/доменах |
+| Настройка | Нужен CORS + CSRF-cookie эндпоинт | Просто заголовок |
+
+**Выбрали token-based**, потому что:
+- При разработке фронт (Vite dev server :5173) и бэк (artisan serve :8000) на разных портах
+- В Docker nginx и API на одном контейнере, но при локальной разработке — нет
+- Token-подход проще: не нужно настраивать CORS cookies, CSRF endpoint, `withCredentials`
+- Токен хранится в `localStorage`, а не в HttpOnly cookie
+
+> [!NOTE]
+> В продакшене можно переключиться на cookie-based для лучшей безопасности (HttpOnly cookies не доступны из JS, защита от XSS). Но для учебного проекта token-based проще и нагляднее.
+
+### 2.2. Модели и связи
+
+```mermaid
+erDiagram
+    users ||--o{ tasks : "hasMany"
+    users ||--o{ personal_access_tokens : "hasMany"
+    users {
+        bigint id PK
+        string name
+        string email UK
+        string password
+        timestamp created_at
+    }
+    tasks {
+        bigint id PK
+        bigint user_id FK
+        string title
+        text description
+        enum status "pending | completed"
+        timestamp created_at
+    }
+    personal_access_tokens {
+        bigint id PK
+        bigint tokenable_id FK
+        string name
+        string token
+        timestamp expires_at
+    }
+```
+
+**Почему `user_id` НЕ в `$fillable` модели Task?**
+
+```php
+// Task.php
+protected $fillable = ['title', 'description', 'status'];
+// user_id НЕТ в fillable!
+```
+
+Это защита от **mass assignment attack**. Если бы `user_id` был в fillable, злоумышленник мог бы отправить:
+```json
+{ "title": "Hack", "user_id": 999 }
+```
+и создать задачу от имени другого пользователя. Вместо этого `user_id` проставляется **только через связь**:
+```php
+$request->user()->tasks()->create($validated);
+// Laravel автоматически подставит user_id = текущий пользователь
+```
+
+### 2.3. TaskController — защита от доступа к чужим задачам
+
+Главный архитектурный принцип: **все запросы идут через связь `$user->tasks()`**.
+
+```php
+// ❌ ПЛОХО — нужна ручная проверка владельца
+$task = Task::findOrFail($id);
+if ($task->user_id !== $request->user()->id) {
+    abort(403);
+}
+
+// ✅ ХОРОШО — автоматическая фильтрация
+$task = $request->user()->tasks()->findOrFail($id);
+// Если задача не принадлежит пользователю → 404 (задача "не существует")
+```
+
+**Почему 404, а не 403?** Это принцип **information hiding** — злоумышленник не узнает, что задача с данным id существует у другого пользователя. Для него её просто "нет".
+
+### 2.4. Валидация
+
+```php
+// store() — при создании title обязателен
+'title' => 'required|string|max:255'
+
+// update() — при обновлении title может не приходить (если меняем только статус)
+'title' => 'sometimes|required|string|max:255'
+'status' => 'sometimes|in:pending,completed'
+```
+
+`sometimes` означает: "валидируй это поле ТОЛЬКО если оно присутствует в запросе". Это позволяет отправлять частичные обновления — например, поменять только статус без title.
+
+### 2.5. AuthController
+
+```php
+// register() — 3 шага:
+1. Валидация (name, email unique, password min:6)
+2. User::create() + Hash::make(password)
+3. createToken() → вернуть plainTextToken
+
+// login() — 2 шага:
+1. Auth::attempt() — проверяет email+password
+2. Если ок → createToken(), иначе → 401
+
+// logout() — 1 шаг:
+1. currentAccessToken()->delete()
+// Удаляем ТОЛЬКО текущий токен, другие сессии не трогаем
+```
+
+### 2.6. Маршрутизация (routes)
+
+```php
+// api.php — ДВА уровня:
+
+// 1. Публичные (без авторизации) — доступны всем
+Route::post('/register', ...);
+Route::post('/login', ...);
+
+// 2. Защищённые (auth:sanctum) — только с валидным токеном
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('tasks', TaskController::class);
+    // apiResource генерирует: index, store, show, update, destroy
+});
+```
+
+**SPA catch-all в web.php:**
+```php
+Route::get('/{any?}', fn() => view('app'))->where('any', '.*');
+```
+Это ловит ВСЕ GET-запросы (кроме `/api/*`) и отдаёт один blade-шаблон. Vue Router внутри SPA сам решает, какую страницу показать по URL.
+
+---
+
+## 3. Frontend
+
+### 3.1. Инициализация Vue
+
+```
+app.js → createApp(App)
+           ├── use(createPinia())  — state management
+           ├── use(router)         — SPA-навигация
+           └── mount('#app')       — монтируется в div#app из blade
+```
+
+**Почему Pinia, а не просто `ref` в компонентах?**
+
+Без Pinia данные живут только в компоненте. Если уйти со страницы и вернуться — данные потеряны, нужно заново загружать. Pinia — это **глобальное хранилище**, доступное из любого компонента. Плюс:
+- Auth-состояние (token, user) нужно **везде**: в гардах роутера, в axios interceptor, в хэдере
+- Задачи нужны и в списке, и в форме добавления, и в каждой карточке
+
+### 3.2. Vue Router — навигационные гарды
+
+```javascript
+router.beforeEach((to, from, next) => {
+    const token = localStorage.getItem('token');
+
+    if (to.meta.requiresAuth && !token) {
+        next({ name: 'login' });      // Не залогинен → на логин
+    } else if (to.meta.guest && token) {
+        next({ name: 'tasks' });       // Уже залогинен → на задачи
+    } else {
+        next();                         // Всё ок, пропускаем
+    }
+});
+```
+
+**`beforeEach`** выполняется перед КАЖДЫМ переходом. Это **клиентская** защита. Серверная защита — `auth:sanctum` middleware. Обе нужны:
+- Клиентская — UX (не показываем страницу, куда нельзя)
+- Серверная — безопасность (даже если обойти гард, API не отдаст данные)
+
+### 3.3. Axios — interceptors
+
+```javascript
+// Request interceptor — ПЕРЕД каждым запросом
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+```
+
+**Зачем interceptor, а не вручную в каждом запросе?** DRY — без interceptor пришлось бы писать:
+```javascript
+// ❌ Повторение в каждом вызове
+axios.get('/api/tasks', { headers: { Authorization: `Bearer ${token}` } });
+axios.post('/api/tasks', data, { headers: { Authorization: `Bearer ${token}` } });
+// etc...
+
+// ✅ С interceptor — один раз настроил, везде работает
+api.get('/tasks');
+api.post('/tasks', data);
+```
+
+**Response interceptor на 401:**
+Если сервер ответил 401 — токен протух или невалиден. Автоматически очищаем localStorage и редиректим на `/login`. Без этого пользователь видел бы непонятные ошибки.
+
+### 3.4. Pinia Stores
+
+**Auth Store** — хранит `token` и [user](file:///d:/astratest/app/Models/Task.php#28-35) в двух местах:
+
+| Место | Зачем |
+|---|---|
+| `Pinia state` | Реактивность — Vue компоненты автоматически обновляются |
+| `localStorage` | Persistence — данные сохраняются между перезагрузками страницы |
+
+При инициализации store **читает из localStorage**:
+```javascript
+state: () => ({
+    token: localStorage.getItem('token') || null,
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
+})
+```
+Поэтому после перезагрузки страницы пользователь остаётся залогиненным.
+
+**Tasks Store** — обновляет массив [tasks](file:///d:/astratest/app/Models/User.php#35-42) локально после каждого API-вызова:
+```javascript
+async addTask(title, description) {
+    const response = await api.post('/tasks', { title, description });
+    this.tasks.unshift(response.data); // Добавляем В НАЧАЛО (новые сверху)
+}
+```
+Не делаем [fetchTasks()](file:///d:/astratest/resources/js/stores/tasks.js#24-33) после каждой операции — это лишний запрос. Вместо этого обновляем локальный массив. Это **оптимистичный подход** (но не полностью оптимистичный — мы ждём ответа сервера перед обновлением UI).
+
+### 3.5. Компоненты
+
+**TaskCard — два режима:**
+```
+Просмотр:
+┌──────────────────────────────────────────────┐
+│ Заголовок (кликабельный)                     │
+│ Описание (≤50 символов)...   [Активна] [✕]   │
+└──────────────────────────────────────────────┘
+        │ клик на заголовок
+        ▼
+Редактирование:
+┌──────────────────────────────────────────────┐
+│ [input: заголовок                          ] │
+│ [textarea: описание                        ] │
+│ [Сохранить] [Отмена]                         │
+└──────────────────────────────────────────────┘
+```
+
+**Почему inline-редактирование, а не отдельная страница?** UX проще — не нужен лишний маршрут, данные уже загружены, пользователь остаётся в контексте списка.
+
+**Обрезка описания:**
+```javascript
+const truncatedDescription = computed(() => {
+    if (props.task.description.length <= 50) return props.task.description;
+    return props.task.description.substring(0, 50) + '...';
+});
+```
+`computed` — значение пересчитывается реактивно при изменении `task.description`.
+
+---
+
+## 4. Связка Backend ↔ Frontend
+
+### SPA-маршрутизация: как два роутера не конфликтуют?
+
+```
+Запрос: GET /tasks
+  1. Nginx → Laravel (web.php catch-all)
+  2. Laravel отдаёт app.blade.php (HTML + CSS + JS)
+  3. Vue загружается, Vue Router читает URL "/tasks"
+  4. Vue Router рендерит TasksPage.vue
+  5. TasksPage делает GET /api/tasks → Laravel API
+
+Запрос: GET /api/tasks
+  1. Nginx → Laravel (api.php)
+  2. Middleware auth:sanctum проверяет токен
+  3. TaskController@index → JSON
+```
+
+**Ключевое**: `/api/*` — обрабатывается API-маршрутами. Всё остальное — отдаёт [app.blade.php](file:///d:/astratest/resources/views/app.blade.php), а Vue Router разбирается с URL на клиенте.
+
+### Поток аутентификации
+
+```mermaid
+sequenceDiagram
+    participant B as Браузер (Vue)
+    participant A as Laravel API
+
+    B->>A: POST /api/register {name, email, password}
+    A->>A: Валидация → User::create() → createToken()
+    A-->>B: 201 {user, token: "1|abc123"}
+    B->>B: localStorage.setItem('token', '1|abc123')
+    B->>B: router.push('/tasks')
+
+    B->>A: GET /api/tasks (Authorization: Bearer 1|abc123)
+    A->>A: Sanctum: найти token → найти user
+    A->>A: $user->tasks()->get()
+    A-->>B: 200 [{id:1, title:"...", ...}]
+    B->>B: tasksStore.tasks = response.data
+    B->>B: Vue рендерит список
+```
+
+---
+
+## 5. Docker
+
+### Зачем три отдельных контейнера?
+
+```
+┌─────────────────────────────────────────────┐
+│                  Docker                      │
+│                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │  nginx   │  │   app    │  │  mysql   │  │
+│  │ :80→:8080│──│ PHP-FPM  │──│  :3306   │  │
+│  │ (прокси) │  │ :9000    │  │ (данные) │  │
+│  └──────────┘  └──────────┘  └──────────┘  │
+│         ↑              ↑                     │
+│    порт 8080      volumes: ./               │
+└─────────────────────────────────────────────┘
+```
+
+| Контейнер | Зачем отдельный |
+|---|---|
+| **nginx** | Раздаёт статику (CSS, JS, images) без участия PHP — быстрее |
+| **app** | PHP-FPM обрабатывает только PHP-запросы |
+| **mysql** | БД изолирована, данные в Docker volume (не потеряются при пересборке) |
+
+**Почему PHP-FPM, а не PHP + Apache?** FPM (FastCGI Process Manager) — пул воркеров, каждый обслуживает запрос. Nginx + FPM эффективнее Apache с mod_php, потому что Nginx лучше обрабатывает конкурентные соединения и статику.
+
+### healthcheck MySQL
+
+```yaml
+healthcheck:
+    test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+    interval: 10s
+```
+
+`depends_on: mysql: condition: service_healthy` — контейнер `app` не запустится, пока MySQL не будет реально готов принимать соединения. Без этого Laravel упадёт с "Connection refused" при старте, потому что MySQL-контейнер уже "запущен", но ещё не инициализировал БД.
