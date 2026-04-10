@@ -48,22 +48,10 @@
 </template>
 
 <script setup>
-/**
- * LoginPage — страница входа.
- *
- * Логика:
- * 1. Пользователь вводит email и password.
- * 2. При submit вызывается authStore.login().
- * 3. Если успешно — router.push('/tasks').
- * 4. Если ошибка — показываем текст ошибки.
- *
- * Ошибки от сервера приходят в error.response.data:
- *  - 401: { message: "Неверный email или пароль." }
- *  - 422: { message: "...", errors: { email: [...] } }
- */
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { extractErrorMessage } from '../utils/errors';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -80,12 +68,7 @@ async function handleLogin() {
         await authStore.login(email.value, password.value);
         router.push('/tasks');
     } catch (e) {
-        if (e.response && e.response.data) {
-            // Сервер вернул ошибку
-            error.value = e.response.data.message || 'Ошибка входа.';
-        } else {
-            error.value = 'Ошибка сети. Попробуйте позже.';
-        }
+        error.value = extractErrorMessage(e, 'Ошибка входа.');
     } finally {
         loading.value = false;
     }

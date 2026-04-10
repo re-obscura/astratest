@@ -37,8 +37,13 @@ export const useAuthStore = defineStore('auth', {
             this.setAuth(response.data);
         },
 
-        async register(name, email, password) {
-            const response = await api.post('/register', { name, email, password });
+        async register(name, email, password, passwordConfirmation) {
+            const response = await api.post('/register', {
+                name,
+                email,
+                password,
+                password_confirmation: passwordConfirmation,
+            });
             this.setAuth(response.data);
         },
 

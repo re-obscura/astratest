@@ -2,23 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * Модель задачи.
- *
- * Поля:
- *  - title:       заголовок (обязательно, макс 255)
- *  - description: описание (необязательно)
- *  - status:      'pending' или 'completed'
- *
- * Связь: каждая задача принадлежит одному пользователю (belongsTo).
- * fillable — только те поля, которые можно массово присваивать.
- * user_id НЕ в fillable — он проставляется через связь $user->tasks()->create().
- */
 class Task extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'title',
         'description',

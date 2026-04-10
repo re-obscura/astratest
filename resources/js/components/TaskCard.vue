@@ -71,25 +71,9 @@
 </template>
 
 <script setup>
-/**
- * TaskCard — компонент карточки задачи.
- *
- * Props:
- *  - task: объект задачи { id, title, description, status }
- *
- * Режим просмотра:
- *  - Клик на заголовок → startEditing()
- *  - Кнопка статуса → toggleStatus() → PUT запрос
- *  - Кнопка удаления → handleDelete() → DELETE запрос
- *
- * Режим редактирования:
- *  - Сохранить → saveEdit() → PUT запрос
- *  - Отмена → cancelEditing()
- *
- * truncatedDescription: обрезает описание до 50 символов + '...'
- */
 import { ref, computed } from 'vue';
 import { useTasksStore } from '../stores/tasks';
+import { extractErrorMessage } from '../utils/errors';
 
 const props = defineProps({
     task: {
@@ -160,16 +144,7 @@ async function saveEdit() {
         });
         editing.value = false;
     } catch (e) {
-        if (e.response && e.response.data) {
-            const data = e.response.data;
-            if (data.errors && data.errors.title) {
-                editError.value = data.errors.title[0];
-            } else {
-                editError.value = data.message || 'Ошибка при сохранении.';
-            }
-        } else {
-            editError.value = 'Ошибка сети.';
-        }
+        editError.value = extractErrorMessage(e, 'Ошибка при сохранении.');
     } finally {
         editLoading.value = false;
     }

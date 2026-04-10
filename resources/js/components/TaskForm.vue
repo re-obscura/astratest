@@ -28,18 +28,9 @@
 </template>
 
 <script setup>
-/**
- * TaskForm — компонент формы добавления задачи.
- *
- * При отправке:
- * 1. Вызываем tasksStore.addTask(title, description)
- * 2. Очищаем поля формы
- * 3. Эмитим событие 'task-added' наверх
- *
- * Ошибки валидации показываем под формой.
- */
 import { ref } from 'vue';
 import { useTasksStore } from '../stores/tasks';
+import { extractErrorMessage } from '../utils/errors';
 
 const emit = defineEmits(['task-added']);
 const tasksStore = useTasksStore();
@@ -54,21 +45,11 @@ async function handleSubmit() {
     loading.value = true;
     try {
         await tasksStore.addTask(title.value, description.value);
-        // Очищаем поля после успешного добавления
         title.value = '';
         description.value = '';
         emit('task-added');
     } catch (e) {
-        if (e.response && e.response.data) {
-            const data = e.response.data;
-            if (data.errors && data.errors.title) {
-                error.value = data.errors.title[0];
-            } else {
-                error.value = data.message || 'Ошибка при добавлении задачи.';
-            }
-        } else {
-            error.value = 'Ошибка сети.';
-        }
+        error.value = extractErrorMessage(e, 'Ошибка при добавлении задачи.');
     } finally {
         loading.value = false;
     }

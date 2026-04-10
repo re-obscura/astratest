@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Контроллер аутентификации.
@@ -25,34 +27,17 @@ class AuthController extends Controller
     /**
      * Регистрация нового пользователя.
      *
-     * Валидация:
-     *  - name: обязательно, строка, макс 255
-     *  - email: обязательно, email, уникально в таблице users
-     *  - password: обязательно, минимум 6 символов
-     *
      * После создания пользователя генерируем Sanctum-токен
      * и возвращаем его клиенту.
      */
-    public function register(Request $request): JsonResponse
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
-        ]);
+        $user = User::create($request->validated());
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-        ]);
-
-        // createToken('auth_token') — создаёт PersonalAccessToken в БД
-        // plainTextToken — строковый токен вида "id|random_string"
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => new UserResource($user),
             'token' => $token,
         ], 201);
     }
@@ -64,14 +49,9 @@ class AuthController extends Controller
      * Если неуспешно — возвращаем 401.
      * Если успешно — создаём новый Sanctum-токен.
      */
-    public function login(Request $request): JsonResponse
+    public function login(LoginRequest $request): JsonResponse
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        if (!Auth::attempt($request->validated())) {
             return response()->json([
                 'message' => 'Неверный email или пароль.',
             ], 401);
@@ -81,7 +61,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => new UserResource($user),
             'token' => $token,
         ]);
     }
@@ -107,6 +87,6 @@ class AuthController extends Controller
      */
     public function user(Request $request): JsonResponse
     {
-        return response()->json($request->user());
+        return response()->json(new UserResource($request->user()));
     }
 }

@@ -1,7 +1,7 @@
 <template>
   <!--
     Страница регистрации.
-    Форма: name + email + password.
+    Форма: name + email + password + password_confirmation.
     После успешной регистрации — редирект на /tasks.
   -->
   <div class="auth-page">
@@ -42,6 +42,17 @@
           />
         </div>
 
+        <div class="form-group">
+          <label for="password_confirmation">Подтвердите пароль</label>
+          <input
+            id="password_confirmation"
+            v-model="passwordConfirmation"
+            type="password"
+            placeholder="Повторите пароль"
+            required
+          />
+        </div>
+
         <p v-if="error" class="error-text">{{ error }}</p>
 
         <button type="submit" class="btn btn-primary" :disabled="loading">
@@ -61,6 +72,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { extractErrorMessage } from '../utils/errors';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -68,6 +80,7 @@ const authStore = useAuthStore();
 const name = ref('');
 const email = ref('');
 const password = ref('');
+const passwordConfirmation = ref('');
 const error = ref('');
 const loading = ref(false);
 
@@ -75,21 +88,15 @@ async function handleRegister() {
     error.value = '';
     loading.value = true;
     try {
-        await authStore.register(name.value, email.value, password.value);
+        await authStore.register(
+            name.value,
+            email.value,
+            password.value,
+            passwordConfirmation.value,
+        );
         router.push('/tasks');
     } catch (e) {
-        if (e.response && e.response.data) {
-            const data = e.response.data;
-            // Ошибки валидации Laravel: { errors: { email: ["The email has already been taken."] } }
-            if (data.errors) {
-                const firstError = Object.values(data.errors)[0];
-                error.value = firstError[0];
-            } else {
-                error.value = data.message || 'Ошибка регистрации.';
-            }
-        } else {
-            error.value = 'Ошибка сети. Попробуйте позже.';
-        }
+        error.value = extractErrorMessage(e, 'Ошибка регистрации.');
     } finally {
         loading.value = false;
     }
