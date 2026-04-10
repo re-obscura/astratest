@@ -1,0 +1,10 @@
+.git
+.gitignore
+node_modules
+vendor
+public/build
+storage/logs/*.log
+.env.example
+*.md
+docker-compose.yml
+start.bat

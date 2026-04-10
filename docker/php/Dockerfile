@@ -37,17 +37,29 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 WORKDIR /var/www
 
-# Копируем файлы проекта
+# Копируем файлы зависимостей первыми для лучшего кэширования Docker слоёв
+COPY composer.json composer.lock ./
+RUN composer install --optimize-autoloader --no-dev --no-scripts
+
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Копируем остальные файлы проекта
 COPY . /var/www
 
-# Устанавливаем PHP-зависимости
-RUN composer install --optimize-autoloader --no-dev
+# Перегенерируем автозагрузку после копирования исходников
+RUN composer dump-autoload --optimize
 
-# Устанавливаем JS-зависимости и собираем фронтенд
-RUN npm install && npm run build
+# Собираем фронтенд
+RUN npm run build
 
 # Права на storage и bootstrap/cache
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+
+# Копируем и делаем исполняемым entrypoint
+COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 9000
-CMD ["php-fpm"]
+ENTRYPOINT ["entrypoint.sh"]
