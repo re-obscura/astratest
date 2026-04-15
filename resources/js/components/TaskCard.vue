@@ -13,7 +13,7 @@
 
         <!-- Напоминание: отображение -->
         <div v-if="task.reminder_at" class="task-reminder">
-          Напоминание: {{ formatReminder(task.reminder_at) }}
+          Напоминание: {{ formattedReminder }}
         </div>
 
         <!-- Кнопка напоминания (только для pending) -->
@@ -105,6 +105,7 @@
 import { ref, computed } from 'vue';
 import { useTasksStore } from '../stores/tasks';
 import { extractErrorMessage } from '../utils/errors';
+import { formatDatetime, toDatetimeLocalValue } from '../utils/date';
 
 const props = defineProps({
     task: {
@@ -122,15 +123,8 @@ const truncatedDescription = computed(() => {
     return props.task.description.substring(0, 50) + '...';
 });
 
-// Форматирование даты напоминания в читаемый вид
-function formatReminder(isoStr) {
-    if (!isoStr) return '';
-    const d = new Date(isoStr);
-    return d.toLocaleString('ru-RU', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-    });
-}
+// Форматирование даты напоминания — computed, не пересчитывается при каждом render
+const formattedReminder = computed(() => formatDatetime(props.task.reminder_at));
 
 // — Переключение статуса —
 const statusLoading = ref(false);
@@ -139,10 +133,7 @@ async function toggleStatus() {
     statusLoading.value = true;
     try {
         const newStatus = props.task.status === 'pending' ? 'completed' : 'pending';
-        // Правило 7: бэкенд автоматически обнулит reminder_at при completed,
-        // store обновит задачу из ответа API.
         await tasksStore.updateTask(props.task.id, { status: newStatus });
-        // После перехода в completed — скрываем форму напоминания
         if (newStatus === 'completed') {
             showReminderForm.value = false;
         }
@@ -188,7 +179,6 @@ async function saveEdit() {
         await tasksStore.updateTask(props.task.id, {
             title: editTitle.value,
             description: editDescription.value,
-            // Не передаём reminder_at — бэкенд его не тронет (Правило 5)
         });
         editing.value = false;
     } catch (e) {
@@ -208,15 +198,7 @@ function toggleReminderForm() {
     showReminderForm.value = !showReminderForm.value;
     if (showReminderForm.value) {
         reminderError.value = '';
-        // Предзаполняем текущим значением если есть
-        if (props.task.reminder_at) {
-            const d = new Date(props.task.reminder_at);
-            const pad = (n) => n.toString().padStart(2, '0');
-            // datetime-local формат: YYYY-MM-DDTHH:mm в локальном часовом поясе
-            reminderInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        } else {
-            reminderInput.value = '';
-        }
+        reminderInput.value = toDatetimeLocalValue(props.task.reminder_at);
     }
 }
 
@@ -228,8 +210,7 @@ async function saveReminder() {
     reminderError.value = '';
     reminderLoading.value = true;
     try {
-        const localDate = new Date(reminderInput.value);
-        await tasksStore.setReminder(props.task.id, localDate.toISOString());
+        await tasksStore.setReminder(props.task.id, new Date(reminderInput.value).toISOString());
         showReminderForm.value = false;
     } catch (e) {
         reminderError.value = extractErrorMessage(e, 'Ошибка при сохранении напоминания.');

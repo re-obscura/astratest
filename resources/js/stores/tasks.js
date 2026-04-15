@@ -2,14 +2,6 @@
  * Pinia Store: Tasks (задачи).
  *
  * Хранит массив задач текущего пользователя.
- *
- * Методы:
- *  - fetchTasks()          → GET  /api/tasks
- *  - addTask(data)         → POST /api/tasks
- *  - updateTask(id, data)  → PUT  /api/tasks/{id}
- *  - deleteTask(id)        → DELETE /api/tasks/{id}
- *  - setReminder(id, dt)   → POST /api/tasks/{id}/reminder
- *  - deleteReminder(id)    → DELETE /api/tasks/{id}/reminder
  */
 import { defineStore } from 'pinia';
 import api from '../axios';
@@ -21,6 +13,16 @@ export const useTasksStore = defineStore('tasks', {
     }),
 
     actions: {
+        /**
+         * Заменить задачу в массиве по данным из ответа API.
+         */
+        _replaceTask(id, updatedTask) {
+            const index = this.tasks.findIndex((t) => t.id === id);
+            if (index !== -1) {
+                this.tasks[index] = updatedTask;
+            }
+        },
+
         async fetchTasks() {
             this.loading = true;
             try {
@@ -31,17 +33,14 @@ export const useTasksStore = defineStore('tasks', {
             }
         },
 
-        async addTask(title, description) {
+        async addTask({ title, description }) {
             const response = await api.post('/tasks', { title, description });
             this.tasks.unshift(response.data);
         },
 
         async updateTask(id, data) {
             const response = await api.put(`/tasks/${id}`, data);
-            const index = this.tasks.findIndex((t) => t.id === id);
-            if (index !== -1) {
-                this.tasks[index] = response.data;
-            }
+            this._replaceTask(id, response.data);
         },
 
         async deleteTask(id) {
@@ -49,29 +48,14 @@ export const useTasksStore = defineStore('tasks', {
             this.tasks = this.tasks.filter((t) => t.id !== id);
         },
 
-        /**
-         * Установить или изменить напоминание.
-         * @param {number} id - ID задачи
-         * @param {string} reminderAt - ISO datetime строка
-         */
         async setReminder(id, reminderAt) {
             const response = await api.post(`/tasks/${id}/reminder`, { reminder_at: reminderAt });
-            const index = this.tasks.findIndex((t) => t.id === id);
-            if (index !== -1) {
-                this.tasks[index] = response.data;
-            }
+            this._replaceTask(id, response.data);
         },
 
-        /**
-         * Удалить напоминание.
-         * @param {number} id - ID задачи
-         */
         async deleteReminder(id) {
             const response = await api.delete(`/tasks/${id}/reminder`);
-            const index = this.tasks.findIndex((t) => t.id === id);
-            if (index !== -1) {
-                this.tasks[index] = response.data;
-            }
+            this._replaceTask(id, response.data);
         },
     },
 });

@@ -59,12 +59,11 @@ class TaskController extends Controller
 
         $data = $request->validated();
 
-        // Правило 7: при смене статуса на completed — убираем напоминание
+        // Правило 7: если задача отмечается выполненной — сбрасываем напоминание.
+        // Правило 5: если reminder_at не передан — Eloquent не тронет его,
+        //            так как используем 'sometimes' в UpdateTaskRequest.
         if (isset($data['status']) && $data['status'] === 'completed') {
             $data['reminder_at'] = null;
-        } elseif (!array_key_exists('reminder_at', $data)) {
-            // Правило 5: если reminder_at не передан — не трогаем его
-            unset($data['reminder_at']);
         }
 
         $task->update($data);

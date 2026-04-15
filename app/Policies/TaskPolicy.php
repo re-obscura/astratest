@@ -9,20 +9,25 @@ class TaskPolicy
 {
     public function update(User $user, Task $task): bool
     {
-        return $user->id === $task->user_id;
+        return $this->owns($user, $task);
     }
 
     public function delete(User $user, Task $task): bool
     {
-        return $user->id === $task->user_id;
+        return $this->owns($user, $task);
     }
 
     public function setReminder(User $user, Task $task): bool
     {
-        return $user->id === $task->user_id;
+        return $this->owns($user, $task);
     }
 
     public function deleteReminder(User $user, Task $task): bool
+    {
+        return $this->owns($user, $task);
+    }
+
+    private function owns(User $user, Task $task): bool
     {
         return $user->id === $task->user_id;
     }

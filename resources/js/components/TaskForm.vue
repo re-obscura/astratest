@@ -1,9 +1,4 @@
 <template>
-  <!--
-    Форма добавления задачи.
-    Два поля: title (обязательно) и description (необязательно).
-    После успешного добавления — очистка полей + emit('task-added').
-  -->
   <form @submit.prevent="handleSubmit" class="task-form">
     <div class="form-row">
       <input
@@ -44,7 +39,7 @@ async function handleSubmit() {
     error.value = '';
     loading.value = true;
     try {
-        await tasksStore.addTask(title.value, description.value);
+        await tasksStore.addTask({ title: title.value, description: description.value });
         title.value = '';
         description.value = '';
         emit('task-added');
