@@ -14,6 +14,8 @@
 FROM php:8.3-fpm
 
 # Системные зависимости
+# Заменяем зеркало на Яндекс для стабильности сборки
+RUN sed -i 's/deb.debian.org/mirror.yandex.ru/g' /etc/apt/sources.list.d/debian.sources || sed -i 's/deb.debian.org/mirror.yandex.ru/g' /etc/apt/sources.list
 RUN apt-get update && apt-get install -y \
     git \
     curl \

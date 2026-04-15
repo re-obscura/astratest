@@ -16,4 +16,14 @@ class TaskPolicy
     {
         return $user->id === $task->user_id;
     }
+
+    public function setReminder(User $user, Task $task): bool
+    {
+        return $user->id === $task->user_id;
+    }
+
+    public function deleteReminder(User $user, Task $task): bool
+    {
+        return $user->id === $task->user_id;
+    }
 }

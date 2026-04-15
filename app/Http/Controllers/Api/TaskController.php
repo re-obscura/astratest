@@ -49,13 +49,25 @@ class TaskController extends Controller
     /**
      * Обновить задачу (только свою).
      *
-     * Авторизация через TaskPolicy.
+     * Правило 5: PUT /api/tasks/{id} не должен стирать reminder_at,
+     *            если поле не передано в запросе.
+     * Правило 7: если статус меняется на 'completed' — reminder_at обнуляется.
      */
     public function update(UpdateTaskRequest $request, Task $task): JsonResponse
     {
         $this->authorize('update', $task);
 
-        $task->update($request->validated());
+        $data = $request->validated();
+
+        // Правило 7: при смене статуса на completed — убираем напоминание
+        if (isset($data['status']) && $data['status'] === 'completed') {
+            $data['reminder_at'] = null;
+        } elseif (!array_key_exists('reminder_at', $data)) {
+            // Правило 5: если reminder_at не передан — не трогаем его
+            unset($data['reminder_at']);
+        }
+
+        $task->update($data);
 
         return response()->json(new TaskResource($task));
     }

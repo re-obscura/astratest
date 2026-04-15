@@ -3,13 +3,13 @@
  *
  * Хранит массив задач текущего пользователя.
  *
- * Каждый метод обращается к API и обновляет локальный state,
- * чтобы UI обновлялся без перезагрузки страницы:
- *
- *  - fetchTasks()     → GET /api/tasks → заполняет this.tasks
- *  - addTask(data)    → POST /api/tasks → добавляет задачу в начало
- *  - updateTask(id, data) → PUT /api/tasks/{id} → обновляет в массиве
- *  - deleteTask(id)   → DELETE /api/tasks/{id} → удаляет из массива
+ * Методы:
+ *  - fetchTasks()          → GET  /api/tasks
+ *  - addTask(data)         → POST /api/tasks
+ *  - updateTask(id, data)  → PUT  /api/tasks/{id}
+ *  - deleteTask(id)        → DELETE /api/tasks/{id}
+ *  - setReminder(id, dt)   → POST /api/tasks/{id}/reminder
+ *  - deleteReminder(id)    → DELETE /api/tasks/{id}/reminder
  */
 import { defineStore } from 'pinia';
 import api from '../axios';
@@ -33,13 +33,11 @@ export const useTasksStore = defineStore('tasks', {
 
         async addTask(title, description) {
             const response = await api.post('/tasks', { title, description });
-            // Добавляем новую задачу в начало массива (новые сверху)
             this.tasks.unshift(response.data);
         },
 
         async updateTask(id, data) {
             const response = await api.put(`/tasks/${id}`, data);
-            // Находим задачу в массиве и заменяем обновлённой
             const index = this.tasks.findIndex((t) => t.id === id);
             if (index !== -1) {
                 this.tasks[index] = response.data;
@@ -48,8 +46,32 @@ export const useTasksStore = defineStore('tasks', {
 
         async deleteTask(id) {
             await api.delete(`/tasks/${id}`);
-            // Убираем задачу из массива
             this.tasks = this.tasks.filter((t) => t.id !== id);
+        },
+
+        /**
+         * Установить или изменить напоминание.
+         * @param {number} id - ID задачи
+         * @param {string} reminderAt - ISO datetime строка
+         */
+        async setReminder(id, reminderAt) {
+            const response = await api.post(`/tasks/${id}/reminder`, { reminder_at: reminderAt });
+            const index = this.tasks.findIndex((t) => t.id === id);
+            if (index !== -1) {
+                this.tasks[index] = response.data;
+            }
+        },
+
+        /**
+         * Удалить напоминание.
+         * @param {number} id - ID задачи
+         */
+        async deleteReminder(id) {
+            const response = await api.delete(`/tasks/${id}/reminder`);
+            const index = this.tasks.findIndex((t) => t.id === id);
+            if (index !== -1) {
+                this.tasks[index] = response.data;
+            }
         },
     },
 });

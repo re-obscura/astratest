@@ -13,6 +13,11 @@ class Task extends Model
         'title',
         'description',
         'status',
+        'reminder_at',
+    ];
+
+    protected $casts = [
+        'reminder_at' => 'datetime',
     ];
 
     /**

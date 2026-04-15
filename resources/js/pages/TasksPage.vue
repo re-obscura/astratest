@@ -51,7 +51,7 @@
  * onTaskAdded: колбэк от TaskForm, вызывается после добавления.
  * Задача уже добавлена в store, так что ничего дополнительно делать не нужно.
  */
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useTasksStore } from '../stores/tasks';
@@ -62,13 +62,55 @@ const router = useRouter();
 const authStore = useAuthStore();
 const tasksStore = useTasksStore();
 
+// Уведомления о напоминаниях
+const notifiedTasks = new Set();
+let reminderInterval = null;
+
+function checkReminders() {
+    if (!tasksStore.tasks) return;
+    const now = new Date();
+    tasksStore.tasks.forEach(task => {
+        if (task.status === 'pending' && task.reminder_at) {
+            const reminderDate = new Date(task.reminder_at);
+            if (reminderDate <= now && !notifiedTasks.has(task.id)) {
+                notifiedTasks.add(task.id);
+                triggerNotification(task);
+            }
+        }
+    });
+}
+
+function triggerNotification(task) {
+    const title = 'Напоминание!';
+    const body = task.title;
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body });
+    } else {
+        alert(`${title}\n${body}`);
+    }
+}
+
 onMounted(async () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
     try {
         await authStore.fetchUser();
     } catch (e) {
         // Если не удалось — авторизация невалидна
     }
     await tasksStore.fetchTasks();
+
+    // Проверка напоминаний каждые 10 секунд
+    checkReminders(); // Сразу при загрузке
+    reminderInterval = setInterval(checkReminders, 10000);
+});
+
+onUnmounted(() => {
+    if (reminderInterval) {
+        clearInterval(reminderInterval);
+    }
 });
 
 async function handleLogout() {
