@@ -1,5 +1,5 @@
 <template>
-  <div class="task-card" :class="{ 'task-completed': task.status === 'completed' }">
+  <div class="task-card" :class="{ 'task-completed': task.status === 'completed', 'task-overdue': isOverdue }">
 
     <!-- Режим просмотра -->
     <template v-if="!editing">
@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useTasksStore } from '../stores/tasks';
 import { extractErrorMessage } from '../utils/errors';
 import { formatDatetime, toDatetimeLocalValue } from '../utils/date';
@@ -125,6 +125,36 @@ const truncatedDescription = computed(() => {
 
 // Форматирование даты напоминания — computed, не пересчитывается при каждом render
 const formattedReminder = computed(() => formatDatetime(props.task.reminder_at));
+
+// Проверка на просроченность
+const now = ref(new Date());
+let overdueTimer = null;
+
+onMounted(() => {
+    overdueTimer = setInterval(() => now.value = new Date(), 10000);
+});
+
+onUnmounted(() => {
+    if (overdueTimer) clearInterval(overdueTimer);
+});
+
+const isOverdue = computed(() => {
+    if (props.task.status === 'completed' || !props.task.reminder_at) return false;
+    const reminderDate = new Date(props.task.reminder_at);
+    const overdue = reminderDate <= now.value;
+    
+    // Логируем только если есть напоминание, чтобы не спамить
+    if (props.task.reminder_at) {
+        console.log(`Task [${props.task.title}]:`, {
+            reminder_at_raw: props.task.reminder_at,
+            reminderDate: reminderDate.toLocaleString(),
+            now: now.value.toLocaleString(),
+            isOverdue: overdue
+        });
+    }
+    
+    return overdue;
+});
 
 // — Переключение статуса —
 const statusLoading = ref(false);

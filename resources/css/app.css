@@ -176,6 +176,18 @@ a:hover {
     opacity: 0.55;
 }
 
+.task-card.task-overdue {
+    border-color: #fca5a5;
+    background-color: #fef2f2;
+}
+
+.task-card.task-overdue .task-reminder {
+    color: #b91c1c;
+    background: #fee2e2;
+    border-color: #fecaca;
+    font-weight: 600;
+}
+
 .task-card.task-completed .task-title {
     text-decoration: line-through;
     color: #8c8c99;
