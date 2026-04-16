@@ -38,10 +38,29 @@ class TaskController extends Controller
      * Создать новую задачу.
      *
      * user_id проставляется автоматически через связь.
+     * Если передан reminder_at — проверяем лимит в 3 активных напоминания,
+     * чтобы нельзя было обойти его через этот эндпоинт.
      */
     public function store(StoreTaskRequest $request): JsonResponse
     {
-        $task = $request->user()->tasks()->create($request->validated());
+        $data = $request->validated();
+
+        // Проверяем лимит только если reminder_at передан в запросе.
+        if (!empty($data['reminder_at'])) {
+            $activeRemindersCount = $request->user()
+                ->tasks()
+                ->whereNotNull('reminder_at')
+                ->where('reminder_at', '>', now())
+                ->count();
+
+            if ($activeRemindersCount >= 3) {
+                return response()->json([
+                    'message' => 'Нельзя иметь более 3 активных напоминаний одновременно.',
+                ], 422);
+            }
+        }
+
+        $task = $request->user()->tasks()->create($data);
 
         return response()->json(new TaskResource($task->refresh()), 201);
     }

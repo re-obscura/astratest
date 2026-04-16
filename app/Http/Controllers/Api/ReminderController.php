@@ -42,10 +42,12 @@ class ReminderController extends Controller
             'reminder_at.after' => 'Напоминание должно быть установлено в будущем (позже текущего момента).',
         ]);
 
-        // У пользователя не более 3 активных напоминаний (исключая текущую задачу)
+        // У пользователя не более 3 активных напоминаний (исключая текущую задачу).
+        // Считаем только будущие напоминания — просроченные слот не занимают.
         $activeRemindersCount = $request->user()
             ->tasks()
             ->whereNotNull('reminder_at')
+            ->where('reminder_at', '>', now())
             ->where('id', '!=', $task->id)
             ->count();
 
@@ -56,6 +58,9 @@ class ReminderController extends Controller
         }
 
         $task->reminder_at = Carbon::parse($validated['reminder_at']);
+        // Принудительно помечаем модель «грязной», чтобы updated_at обновился
+        // даже если значение reminder_at совпадает с предыдущим.
+        $task->updated_at = now();
         $task->save();
 
         return response()->json(new TaskResource($task));

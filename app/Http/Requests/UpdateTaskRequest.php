@@ -17,9 +17,9 @@ class UpdateTaskRequest extends FormRequest
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'sometimes|in:pending,completed',
-            // reminder_at can be explicitly set to null via PUT (to clear it)
-            // but only via the dedicated /reminder endpoints for setting
-            'reminder_at' => 'sometimes|nullable|date',
+            // reminder_at изменяется только через /api/tasks/{task}/reminder
+            // — здесь поле намеренно отсутствует, чтобы его нельзя было
+            //   обнулить или подменить через обычный PUT /api/tasks/{task}.
         ];
     }
 }
