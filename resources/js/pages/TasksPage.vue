@@ -44,12 +44,16 @@ function checkReminders() {
     if (!tasksStore.tasks) return;
     const now = new Date();
     tasksStore.tasks.forEach(task => {
-        if (task.status === 'pending' && task.reminder_at) {
-            const reminderDate = new Date(task.reminder_at);
-            if (reminderDate <= now && !notifiedTasks.has(task.id)) {
-                notifiedTasks.add(task.id);
-                triggerNotification(task);
-            }
+        // Если напоминание удалено или задача выполнена — сбрасываем флаг,
+        // чтобы будущее напоминание на ту же задачу снова сработало.
+        if (!task.reminder_at || task.status === 'completed') {
+            notifiedTasks.delete(task.id);
+            return;
+        }
+        const reminderDate = new Date(task.reminder_at);
+        if (reminderDate <= now && !notifiedTasks.has(task.id)) {
+            notifiedTasks.add(task.id);
+            triggerNotification(task);
         }
     });
 }

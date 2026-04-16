@@ -140,20 +140,7 @@ onUnmounted(() => {
 
 const isOverdue = computed(() => {
     if (props.task.status === 'completed' || !props.task.reminder_at) return false;
-    const reminderDate = new Date(props.task.reminder_at);
-    const overdue = reminderDate <= now.value;
-    
-    // Логируем только если есть напоминание, чтобы не спамить
-    if (props.task.reminder_at) {
-        console.log(`Task [${props.task.title}]:`, {
-            reminder_at_raw: props.task.reminder_at,
-            reminderDate: reminderDate.toLocaleString(),
-            now: now.value.toLocaleString(),
-            isOverdue: overdue
-        });
-    }
-    
-    return overdue;
+    return new Date(props.task.reminder_at) <= now.value;
 });
 
 // — Переключение статуса —

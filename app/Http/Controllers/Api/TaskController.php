@@ -87,7 +87,7 @@ class TaskController extends Controller
 
         $task->update($data);
 
-        return response()->json(new TaskResource($task));
+        return response()->json(new TaskResource($task->refresh()));
     }
 
     /**
