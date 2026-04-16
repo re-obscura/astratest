@@ -68,9 +68,9 @@ class TaskController extends Controller
     /**
      * Обновить задачу (только свою).
      *
-     * Правило 5: PUT /api/tasks/{id} не должен стирать reminder_at,
-     *            если поле не передано в запросе.
-     * Правило 7: если статус меняется на 'completed' — reminder_at обнуляется.
+     * Управление напоминаниями вынесено в ReminderController — здесь
+     * reminder_at не принимается (поле отсутствует в UpdateTaskRequest).
+     * Исключение: при переводе задачи в 'completed' напоминание сбрасывается.
      */
     public function update(UpdateTaskRequest $request, Task $task): JsonResponse
     {
@@ -78,9 +78,7 @@ class TaskController extends Controller
 
         $data = $request->validated();
 
-        // Правило 7: если задача отмечается выполненной — сбрасываем напоминание.
-        // Правило 5: если reminder_at не передан — Eloquent не тронет его,
-        //            так как используем 'sometimes' в UpdateTaskRequest.
+        // Если задача отмечается выполненной — сбрасываем напоминание.
         if (isset($data['status']) && $data['status'] === 'completed') {
             $data['reminder_at'] = null;
         }

@@ -19,7 +19,7 @@ export const useTasksStore = defineStore('tasks', {
         _replaceTask(id, updatedTask) {
             const index = this.tasks.findIndex((t) => t.id === id);
             if (index !== -1) {
-                this.tasks[index] = updatedTask;
+                this.tasks.splice(index, 1, updatedTask);
             }
         },
 

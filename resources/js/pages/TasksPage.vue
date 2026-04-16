@@ -8,7 +8,7 @@
       <button @click="handleLogout" class="btn btn-logout">Выйти</button>
     </header>
 
-    <TaskForm @task-added="() => {}" />
+    <TaskForm />
 
     <div v-if="tasksStore.loading" class="loading">Загрузка задач...</div>
     <div v-else-if="tasksStore.tasks.length === 0" class="empty-state">

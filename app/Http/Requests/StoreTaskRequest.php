@@ -16,14 +16,14 @@ class StoreTaskRequest extends FormRequest
         return [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'reminder_at' => 'nullable|date|after:' . now()->addMinutes(15)->toDateTimeString(),
+            'reminder_at' => 'nullable|date|after:now',
         ];
     }
 
     public function messages(): array
     {
         return [
-            'reminder_at.after' => 'Напоминание должно быть установлено не ранее чем через 15 минут от текущего момента.',
+            'reminder_at.after' => 'Напоминание должно быть установлено в будущем (позже текущего момента).',
         ];
     }
 }

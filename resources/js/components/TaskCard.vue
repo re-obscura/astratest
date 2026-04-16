@@ -102,10 +102,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useTasksStore } from '../stores/tasks';
 import { extractErrorMessage } from '../utils/errors';
 import { formatDatetime, toDatetimeLocalValue } from '../utils/date';
+import { useNow } from '../utils/useNow';
 
 const props = defineProps({
     task: {
@@ -126,17 +127,9 @@ const truncatedDescription = computed(() => {
 // Форматирование даты напоминания — computed, не пересчитывается при каждом render
 const formattedReminder = computed(() => formatDatetime(props.task.reminder_at));
 
-// Проверка на просроченность
-const now = ref(new Date());
-let overdueTimer = null;
-
-onMounted(() => {
-    overdueTimer = setInterval(() => now.value = new Date(), 10000);
-});
-
-onUnmounted(() => {
-    if (overdueTimer) clearInterval(overdueTimer);
-});
+// Проверка на просроченность — используем общий реактивный now из useNow,
+// чтобы не создавать отдельный setInterval на каждую карточку.
+const { now } = useNow();
 
 const isOverdue = computed(() => {
     if (props.task.status === 'completed' || !props.task.reminder_at) return false;
